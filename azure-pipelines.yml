@@ -1,0 +1,38 @@
+trigger:
+  - master
+  
+  pool:
+    vmImage: 'ubuntu-latest'
+  
+  steps:
+  - task: AWSCLI@1
+    displayName: 'Deploy CloudFormation stack to AWS'
+    inputs:
+      awsCredentials: 'AWS Service Connection'
+      regionName: 'us-east-1'
+      awsCommand: 'cloudformation'
+      awsSubCommand: 'deploy'
+      awsArguments: '--template-file cf/ec2-cf.yaml --stack-name inspector-cf-stack --no-fail-on-empty-changeset'
+  
+  - task: AWSCLI@1
+    displayName: 'Start Amazon Inspector assessment'
+    inputs:
+      awsCredentials: 'AWS Service Connection'
+      regionName: 'us-east-1'
+      awsCommand: 'inspector'
+      awsSubCommand: 'start-assessment-run'
+      awsArguments: '--assessment-run-name pipeline-autorun --assessment-template-arn arn:aws:inspector:us-east-1:425278389646:target/0-X2uoRgLg/template/0-vhFcoOzx'
+  
+  - task: PowerShell@2
+    displayName: 'Force sleep until Inspector analysis is complete'
+    inputs:
+      targetType: 'inline'
+      script: 'Start-Sleep -s 120'
+  
+  - task: AWSCLI@1
+    displayName: 'List Inspector findings in CLI'
+    inputs:
+      awsCredentials: 'AWS Service Connection'
+      regionName: 'us-east-1'
+      awsCommand: 'inspector'
+      awsSubCommand: 'list-findings'

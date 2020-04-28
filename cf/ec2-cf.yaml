@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: "2010-09-09"  
+Resources:
+
+  # VPC for both instances
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: 172.10.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+
+  # Internet gateway for VPC
+  # Instances require an internet gateway to be publically accessible.
+  IGW:
+    Type: AWS::EC2::InternetGateway
+
+  # Attach internet gateway to VPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref VPC
+
+  # Subnet for BBB instance
+  BBBSubnet:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: us-east-1a
+      CidrBlock: 172.10.0.0/17
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+
+  # BigBlueButton-style security group
+  BBBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: BigBlueButton security group
+      GroupName: bbb-sg
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5006
+          ToPort: 5006
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 7443
+          ToPort: 7443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: udp
+          FromPort: 16384
+          ToPort: 32768
+          CidrIp: 0.0.0.0/0
+
+  # BBB-configured EC2 instance
+  BBBInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        -
+          DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp2
+      InstanceType: t2.micro
+      ImageId: ami-80861296
+      KeyName: your-keypair # you will need to change this to your keypair
+      Monitoring: true
+      SecurityGroupIds:
+        - !Ref BBBSecurityGroup
+      SubnetId: !Ref BBBSubnet
+      Tags:
+        -
+          Key: Name
+          Value: ec2-bbb
+
+  # Subnet for misconfigured instance
+  MisconfiguredSubnet:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: us-east-1a
+      CidrBlock: 172.10.128.0/17
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+
+  ## Security group with SSH open to the internet
+  MisconfiguredSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Misconfigured security group
+      GroupName: misconfigured-sg
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0 
+
+  ## Misconfigured EC2 instance
+  MisconfiguredInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        -
+          DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp2
+      InstanceType: t2.micro
+      ImageId: ami-80861296
+      KeyName: your-keypair # you will need to change this to your keypair
+      Monitoring: true
+      SecurityGroupIds:
+        - !Ref MisconfiguredSecurityGroup
+      SubnetId: !Ref MisconfiguredSubnet
+      Tags:
+        -
+          Key: Name
+          Value: ec2-ohdear
